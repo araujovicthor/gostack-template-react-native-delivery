@@ -73,34 +73,69 @@ const FoodDetails: React.FC = () => {
 
   useEffect(() => {
     async function loadFood(): Promise<void> {
-      // Load a specific food with extras based on routeParams id
+      const { data } = await api.get<Food>(`/foods/${routeParams.id}`);
+
+      setFood({ ...data, formattedPrice: formatValue(data.price) });
+
+      setExtras(data.extras.map(extra => ({ ...extra, quantity: 0 })));
+
+      const response = await api.get(`/favorites/${routeParams.id}`);
+
+      if (response) {
+        setIsFavorite(true);
+      }
     }
 
     loadFood();
-  }, [routeParams]);
+  }, [routeParams.id]);
 
   function handleIncrementExtra(id: number): void {
-    // Increment extra quantity
+    const newExtras = extras.map(item =>
+      item.id === id ? { ...item, quantity: item.quantity + 1 } : item,
+    );
+
+    setExtras(newExtras);
   }
 
   function handleDecrementExtra(id: number): void {
-    // Decrement extra quantity
+    const newExtras = extras.map(item =>
+      item.id === id && item.quantity > 0
+        ? { ...item, quantity: item.quantity - 1 }
+        : item,
+    );
+
+    setExtras(newExtras);
   }
 
   function handleIncrementFood(): void {
-    // Increment food quantity
+    setFoodQuantity(state => state + 1);
   }
 
   function handleDecrementFood(): void {
-    // Decrement food quantity
+    setFoodQuantity(state => (state > 1 ? state - 1 : state));
   }
 
-  const toggleFavorite = useCallback(() => {
-    // Toggle if food is favorite or not
+  const toggleFavorite = useCallback(async () => {
+    if (isFavorite) {
+      await api.delete(`/favorites/${food.id}`);
+      setIsFavorite(state => !state);
+    } else {
+      await api.post('/favorites', {
+        ...food,
+      });
+      setIsFavorite(state => !state);
+    }
   }, [isFavorite, food]);
 
   const cartTotal = useMemo(() => {
-    // Calculate cartTotal
+    const extrasValue = extras.reduce((accumulator, extra) => {
+      const subTotal = extra.quantity * extra.value;
+      return accumulator + subTotal;
+    }, 0);
+
+    const foodValue = food.price * foodQuantity;
+
+    return formatValue(foodValue + extrasValue);
   }, [extras, food, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
